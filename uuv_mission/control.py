@@ -6,43 +6,46 @@ class PDController:
         self.kp = kp
         self.kd = kd
 
-    def get_action(self, t: int, positions: np.ndarray, mission, plant) -> float:
+    def get_action(self, t: int, positions: np.ndarray, velocities: np.ndarray, actions: np.ndarray, mission) -> float:
         error = mission.reference - positions.T[1]
         action = self.kp * error[t] + self.kd * (error[t] - (error[t-1] if t > 0 else 0))
         return action
 
 class MPCController:
-    def __init__(self, horizon=5, Q=10, R=1e-4):
+    def __init__(self, horizon=5, Q=10, R=1e-4, n_hidden_layers=2, n_neurons=32):
         self.horizon = horizon  # Prediction horizon
         self.Q = Q  # State cost weight
         self.R = R  # Control cost weight
-        
-    def predict_trajectory(self, initial_state, actions, plant):
+        self.PDController = PDController()  # Fallback controller
+        self.transition_model = None  # Placeholder for neural network model
+    
+    def transition(self, position, velocity, action):
+        pos_x = position[0] + velocity[0]
+        pos_y = position[1] + velocity[1]
+
+        force_y = -0.1 * velocity[1] + action
+        acc_y = force_y
+        vel_x = velocity[0]
+        vel_y = velocity[1] + acc_y
+
+        return (pos_x, pos_y), (vel_x, vel_y)
+
+    def predict_trajectory(self, positions, velocities, actions, t):
         # Simulate the system forward over the horizon
         trajectory = np.zeros((self.horizon + 1, 2))
-        trajectory[0] = initial_state
+        vtrajectory = np.zeros((self.horizon + 1, 2))
+        trajectory[0] = positions[t]
+        vtrajectory[0] = velocities[t]
         
-        # Store original plant state
-        orig_x, orig_y = plant.pos_x, plant.pos_y
-        orig_vx, orig_vy = plant.vel_x, plant.vel_y
-        
-        # Simulate forward
-        for t in range(self.horizon):
-            plant.transition(actions[t], 0)  # Assume no disturbance in prediction
-            trajectory[t + 1] = plant.get_position()
-            
-        # Restore plant state
-        plant.pos_x, plant.pos_y = orig_x, orig_y
-        plant.vel_x, plant.vel_y = orig_vx, orig_vy
+        for t_ in range(self.horizon):
+            trajectory[t_ + 1], vtrajectory[t_ + 1] = self.transition(trajectory[t_], vtrajectory[t_], actions[t_])
         
         return trajectory
 
-    def objective(self, actions, t, positions, mission, plant):
-        # Get current state
-        current_state = positions[t]
-        
+    def objective(self, actions, mission, positions, velocities, t):
+
         # Predict future trajectory
-        trajectory = self.predict_trajectory(current_state, actions, plant)
+        trajectory = self.predict_trajectory(positions, velocities, actions, t)
         
         # Calculate cost over prediction horizon
         cost = 0
@@ -66,7 +69,7 @@ class MPCController:
         
         return cost
 
-    def get_action(self, t: int, positions: np.ndarray, mission, plant) -> float:
+    def get_action(self, t: int, positions: np.ndarray, velocities: np.ndarray, actions: np.ndarray, mission) -> float:
         # Initial guess: zero control sequence
         initial_guess = np.zeros(self.horizon)
         
@@ -74,7 +77,7 @@ class MPCController:
         result = minimize(
             self.objective,
             initial_guess,
-            args=(t, positions, mission, plant),
+            args=(mission, positions, velocities, t),
             method='SLSQP',
             bounds=[(-10, 10)] * self.horizon  # Limit control magnitude
         )
