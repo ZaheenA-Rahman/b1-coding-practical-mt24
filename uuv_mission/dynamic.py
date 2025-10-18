@@ -114,7 +114,10 @@ class ClosedLoop:
         for t in range(T):
             positions[t] = self.plant.get_position()
             velocities[t] = (self.plant.vel_x, self.plant.vel_y)
-            actions[t] = self.controller.get_action(t, positions, velocities, actions, mission)
+            try:
+                actions[t] = self.controller.get_action(t, positions, velocities, actions, mission)
+            except TypeError:
+                actions[t] = self.controller.get_action(t, positions, mission, self.plant)
             self.plant.transition(actions[t], disturbances[t])
 
         return Trajectory(positions)
