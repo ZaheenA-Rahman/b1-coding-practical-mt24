@@ -130,7 +130,7 @@ class MPCController:
         # Return only the first control action
         return float(result.x[0])
 
-class HMPCController:
+class UMPCController:
     def __init__(self, horizon=5, Q=10, R=1e-4, kp=0.15, kd=0.6):
         self.horizon = horizon  # Prediction horizon
         self.Q = Q  # State cost weight
