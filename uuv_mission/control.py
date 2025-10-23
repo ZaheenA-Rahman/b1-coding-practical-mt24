@@ -1,5 +1,6 @@
 import numpy as np
 from scipy.optimize import minimize
+import matplotlib.pyplot as plt
 
 class PDController:
     def __init__(self, kp=0.15, kd=0.6):
@@ -233,3 +234,21 @@ class UMPCController:
         
         # Return only the first control action
         return float(result.x[0]) if metric < 0.2 else self.FallbackController.get_action(t, positions, velocities, actions, mission)
+
+def plot_controller_comparison(means, stds, xlabels, ylabel, title, yscale='linear'):
+
+    x = np.arange(len(xlabels))
+    width = 0.35  # the width of the bars
+
+    fig, ax = plt.subplots()
+    bars = ax.bar(x, means, width, yerr=stds, capsize=5)
+
+    # Add some text for labels, title and custom x-axis tick labels, etc.
+    ax.set_ylabel(ylabel)
+    ax.set_title(title)
+    ax.set_xticks(x)
+    ax.set_xticklabels(xlabels)
+    ax.set_yscale(yscale)
+    ax.bar_label(bars, padding=3)
+
+    plt.show()
