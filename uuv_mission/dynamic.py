@@ -63,6 +63,25 @@ class Trajectory:
         plt.legend(loc='upper right')
         plt.show()
 
+def plot_multiple_trajectories(trajectories, names, mission: Mission):
+
+    assert len(trajectories) == len(names), "Number of trajectories and names must match."
+    
+    x_values = np.arange(len(mission.reference))
+    min_depth = np.min(mission.cave_depth)
+    max_height = np.max(mission.cave_height)
+
+    plt.fill_between(x_values, mission.cave_height, mission.cave_depth, color='blue', alpha=0.3)
+    plt.fill_between(x_values, mission.cave_depth, min_depth*np.ones(len(x_values)), 
+                        color='saddlebrown', alpha=0.3)
+    plt.fill_between(x_values, max_height*np.ones(len(x_values)), mission.cave_height, 
+                        color='saddlebrown', alpha=0.3)
+    for trajectory, name in zip(trajectories, names):
+        plt.plot(trajectory.position[:, 0], trajectory.position[:, 1], label='Trajectory: ' + name)
+    plt.plot(mission.reference, 'r', linestyle='--', label='Reference')
+    plt.legend(loc='lower center')
+    plt.show()
+
 @dataclass
 class Mission:
     reference: np.ndarray
